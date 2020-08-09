@@ -50,39 +50,28 @@ module Model =
     }
 
 module Shortify = 
-    // TODO: refactor to return batches of commands
-    let topUsedCommands invocationHistory =
-        let commandsWithUsageCount = 
-            invocationHistory
-            |> Array.map (fun invocation -> invocation.Command)
-            |> Array.groupBy (fun command -> command.Command.ToString())
-            |> Array.map (fun (_, commands) -> Array.length commands, commands.[0])
-        let top3UsedCommands = 
-            commandsWithUsageCount
-            |> Array.sortByDescending fst
-            |> Array.filter (fun (count, _) -> count > 1)
-            |> Array.truncate 3
-        top3UsedCommands
-
     // TODO: ? Move to Flex module, this is generic
-    let topUsedCommandBatchesOfLength invocationHistory length =
-        let batches = [|
+    let topUsedCommandSequenceOfLength invocationHistory length =
+        let sequenceses = [|
             for i in [0..Array.length invocationHistory - length] do
             invocationHistory |> Array.skip i |> Array.take length
         |]
 
-        batches 
+        sequenceses 
         |> Array.groupBy id
-        |> Array.map (fun (batch, duplicates) -> Array.length duplicates, batch)
+        |> Array.map (fun (sequence, duplicates) -> Array.length duplicates, sequence)
         |> Array.sortByDescending fst
         |> Array.filter (fun (count, _) -> count > 1)
         |> Array.truncate 1
 
-    let topUsedCommandBatches invocationHistory =
+    let repeatedCommandSequence invocationHistory =
         let commandHistory = Array.map (fun i -> i.Command) invocationHistory
-        let maxBatchSize = Array.length commandHistory / 2
-        [|max maxBatchSize 2 .. 2|]
-        |> Array.collect (topUsedCommandBatchesOfLength commandHistory)
+        let maxSequenceLength = Array.length commandHistory / 2
+
+        if maxSequenceLength < 1 then [||]
+        else
+            [|maxSequenceLength .. 1|]
+            |> Array.collect (topUsedCommandSequenceOfLength commandHistory)
 
 module Repl =
     open Shortify
@@ -106,27 +95,33 @@ module Repl =
         with _ -> Error ()
 
     let suggestCommandsShortcut state = 
-        let shortcutCandidates = topUsedCommands state.InvocationHistory
+        let shortcutCandidates = 
+            repeatedCommandSequence state.InvocationHistory
+            |> Array.truncate 3
         if Array.isEmpty shortcutCandidates then 
             printfn "You are a genious who never repeats themselves! Congratuations! None to be done here"
             state
         else
             [
                 for i, (usageCount, command) in shortcutCandidates |> Array.indexed do
-                printfn "Type the number the command you want to shortcut"
+                printfn "Suggested:"
                 printfn "  (%d) : %O -- used %d times" i command usageCount
             ]
             |> ignore
 
+            printfn "  (any other key to cancel)"
+
             try 
+                printfn ""
+                printf "  Make your selection >"
                 let selection = Console.ReadLine() |> int
                 let _, command = Array.item selection shortcutCandidates
 
-                printf "Enter shortcut name: "
+                printf "  Name your shortcut >"
                 let name = Console.ReadLine()
                 let shortcut = {
                     Name = name
-                    Commands = [|command|]
+                    Commands = command
                 }
                 { state with ActiveShortcuts = Array.append [|shortcut|] state.ActiveShortcuts }
             with _ -> state
