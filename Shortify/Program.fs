@@ -3,11 +3,6 @@
 open System
 open Fake.Core
 
-// TODO:
-//  - was it successfull? 
-//  - How long did it run?
-//  - Did any error occur? Want to google it or some custom search engine? :)
-
 [<AutoOpen>]
 module Flex =
     let flip f a b = f b a
@@ -27,7 +22,6 @@ module Model =
         Command: Command
         InvocationTime: DateTime
         CompletionTime: DateTime
-        //Outcome: Result<unit, unit>
     }
 
     type Shortcut = 
@@ -44,10 +38,12 @@ module Model =
                 |> String.concat "\n"
             )
 
-    type State = {
-        InvocationHistory: CommandInvocation array
-        ActiveShortcuts: Shortcut array
-    }
+    type State = 
+        {
+            InvocationHistory: CommandInvocation array
+            ActiveShortcuts: Shortcut array
+        }
+        static member empty = { InvocationHistory = [||]; ActiveShortcuts = [||] }
 
 module Shortify = 
     // TODO: ? Move to Flex module, this is generic
@@ -94,18 +90,24 @@ module Repl =
             Ok ()
         with _ -> Error ()
 
-    let suggestCommandsShortcut state = 
+    let suggestCommandsShortcut isProactive minimumSequenceLength state = 
         let shortcutCandidates = 
             repeatedCommandSequence state.InvocationHistory
+            |> Array.filter (fun (_, commands) -> Array.length commands > minimumSequenceLength)
             |> Array.truncate 3
+
         if Array.isEmpty shortcutCandidates then 
-            printfn "You are a genious who never repeats themselves! Congratuations! None to be done here"
+            if not isProactive then
+                printfn "You are a genious who never repeats themselves! Congratuations! None to be done here"
             state
         else
+            printfn "Suggested:"
             [
-                for i, (usageCount, command) in shortcutCandidates |> Array.indexed do
-                printfn "Suggested:"
-                printfn "  (%d) : %O -- used %d times" i command usageCount
+                for i, (usageCount, commands) in shortcutCandidates |> Array.indexed do
+                printfn "  (%d) : %O -- used %d times" 
+                    i 
+                    (commands |> Array.map (sprintf "%O") |> String.concat "; ") 
+                    usageCount
             ]
             |> ignore
 
@@ -113,11 +115,11 @@ module Repl =
 
             try 
                 printfn ""
-                printf "  Make your selection >"
+                printf "  Make your selection > "
                 let selection = Console.ReadLine() |> int
                 let _, command = Array.item selection shortcutCandidates
 
-                printf "  Name your shortcut >"
+                printf "  Name your shortcut > "
                 let name = Console.ReadLine()
                 let shortcut = {
                     Name = name
@@ -129,8 +131,8 @@ module Repl =
     let suggestedScheduledRun = id
     let suggestArgumentShortcuts = id
 
-    let suggest (state : State) : State =
-        suggestCommandsShortcut state
+    let suggest isProactive minimumSequenceLength (state : State) : State =
+        suggestCommandsShortcut isProactive minimumSequenceLength state
         |> suggestArgumentShortcuts
         |> suggestedScheduledRun
 
@@ -145,7 +147,6 @@ module Repl =
             Command = command
             InvocationTime = invocationTime
             CompletionTime = DateTime.Now
-            //Outcome = outcome
         }
 
         state
@@ -164,16 +165,16 @@ module Repl =
             printfn "See you soon! Buyee :)"
             Environment.Exit(0)
             failwith "unreachable"
-        | "suggest" -> 
-            // TODO: split into suggestion stage and accepting
-            suggest state
+        | "clear history" -> State.empty
+        | "suggest" ->
+            suggest false 1 state
         | "array" ->
             let yourShortcuts = state.ActiveShortcuts
             if Array.isEmpty yourShortcuts then
                 printfn "Currently you dont have any shortcuts. You can add them with 'suggest' command"
             else
                 printfn "Your shortcuts: "
-                yourShortcuts |> Array.iter (printfn "%O")
+                yourShortcuts |> Array.iter (fun s -> s.ToString() |> printfn "%s")
         
             state
         | maybeShortcutName when shortcutMap.ContainsKey maybeShortcutName ->
@@ -186,6 +187,7 @@ module Repl =
             | None -> state
             | Some command -> 
                 invokeCommand command state
+                |> suggest true 2
 
 module IO =
     open Fake.IO
@@ -219,10 +221,7 @@ module App =
         printfn " - Shortcuts to commonly used commands and batches of commands"
         printfn " - Solutions to errors you encounter"
     
-        let mutable state = 
-            readState<State>()
-            |> Option.defaultValue { InvocationHistory = [||]; ActiveShortcuts = [||] }
-        Console.WriteLine(state)
+        let mutable state = readState<State>() |> Option.defaultValue State.empty
         while true do
             state <- repl state
             writeState state
