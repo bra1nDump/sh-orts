@@ -2,8 +2,15 @@
 
 open System
 open Fake.Core
-open Fake.IO
-open System.Text.Json
+
+// TODO:
+//  - was it successfull? 
+//  - How long did it run?
+//  - Did any error occur? Want to google it or some custom search engine? :)
+
+[<AutoOpen>]
+module Flex =
+    let flip f a b = f b a
 
 [<AutoOpen>]
 module Model =
@@ -115,8 +122,27 @@ module Repl =
     let recordInvocation invocation state = 
         { state with InvocationHistory = invocation::state.InvocationHistory }
 
+    let invokeCommand command state = 
+        let invocationTime = DateTime.Now
+        let outcome = execute command
+
+        let invocation = {
+            Command = command
+            InvocationTime = invocationTime
+            CompletionTime = DateTime.Now
+            Outcome = outcome
+        }
+
+        state
+        |> recordInvocation invocation
+
     let repl (state : State) : State =
         printf "sh-orts> "
+
+        let shortcutMap = 
+            state.ActiveShortcuts
+            |> List.map (fun shortcut -> shortcut.Name, shortcut)
+            |> Map.ofList
 
         match Console.ReadLine() with 
         | "exit" | "quit" -> 
@@ -135,29 +161,21 @@ module Repl =
                 yourShortcuts |> List.iter (printfn "%A")
         
             state
+        | maybeShortcutName when shortcutMap.ContainsKey maybeShortcutName ->
+            let shortcut = shortcutMap.Item maybeShortcutName
+            
+            shortcut.Commands
+            |> List.fold (flip invokeCommand) state 
         | unknownCommand ->
             match parse unknownCommand with
             | None -> state
             | Some command -> 
-                let invocationTime = DateTime.Now
-                let outcome = execute command
-
-                let invocation = {
-                    Command = command
-                    InvocationTime = invocationTime
-                    CompletionTime = DateTime.Now
-                    Outcome = outcome
-                }
-
-                state
-                |> recordInvocation invocation
-            
-                // TODO:
-                //  - was it successfull? 
-                //  - How long did it run?
-                //  - Did any error occur? Want to google it or some custom search engine? :)
+                invokeCommand command state
 
 module IO =
+    open Fake.IO
+    open System.Text.Json
+
     let serialize<'a> (value: 'a) =
         let options = JsonSerializerOptions()
         options.WriteIndented <- true
