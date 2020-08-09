@@ -1,4 +1,15 @@
 {
-  "InvocationHistory": [],
+  "InvocationHistory": [
+    {
+      "Command": {
+        "Command": "time",
+        "Arguments": [
+          "ls"
+        ]
+      },
+      "InvocationTime": "2020-08-08T23:25:47.2492076-07:00",
+      "CompletionTime": "2020-08-08T23:25:47.3715625-07:00"
+    }
+  ],
   "ActiveShortcuts": []
 }

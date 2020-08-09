@@ -105,49 +105,6 @@ let suggest (state : State) : State =
 let recordInvocation invocation state = 
     { state with InvocationHistory = invocation::state.InvocationHistory }
 
-let rec loop (state : State) : State =
-    printf "sh-orts> "
-
-    match Console.ReadLine() with 
-    | "exit" | "quit" -> 
-        printfn "See you soon! Buyee!! :)"
-        state
-    | "suggest" -> 
-        state
-        |> suggest
-        |> loop
-    | "list" ->
-        let yourShortcuts = state.ActiveShortcuts
-        if List.isEmpty yourShortcuts then
-            printfn "Currently you dont have any shortcuts. You can add them with 'suggest' command"
-        else
-            printfn "Your shortcuts: "
-            yourShortcuts |> List.iter (printfn "%A")
-
-        loop state
-    | unknownCommand ->
-        match parse unknownCommand with
-        | None -> loop state
-        | Some command -> 
-            let invocationTime = DateTime.Now
-            execute command
-
-            let invocation = {
-                Command = command
-                InvocationTime = invocationTime
-                CompletionTime = DateTime.Now
-            }
-
-            state
-            |> recordInvocation invocation
-            |> loop
-            
-            // TODO:
-            //  - was it successfull? 
-            //  - How long did it run?
-            //  - Did any error occur? Want to google it or some custom search engine? :)
-
-
 let serialize<'a> (value: 'a) =
     let options = JsonSerializerOptions()
     options.WriteIndented <- true
@@ -174,8 +131,56 @@ let readState () : State =
     |> deserialize<State>
     |> Option.defaultValue { InvocationHistory = []; ActiveShortcuts = [] }
 
-let writeState : State -> unit =
-    serialize >> File.writeString false stateFileName
+let writeState state : State =
+    state 
+    |> serialize 
+    |> File.writeString false stateFileName
+
+    state
+
+let rec loop (state : State) : unit =
+    printf "sh-orts> "
+
+    match Console.ReadLine() with 
+    | "exit" | "quit" -> 
+        printfn "See you soon! Buyee!! :)"
+    | "suggest" -> 
+        state
+        |> suggest
+        |> writeState
+        |> loop
+    | "list" ->
+        let yourShortcuts = state.ActiveShortcuts
+        if List.isEmpty yourShortcuts then
+            printfn "Currently you dont have any shortcuts. You can add them with 'suggest' command"
+        else
+            printfn "Your shortcuts: "
+            yourShortcuts |> List.iter (printfn "%A")
+
+        loop state
+    | unknownCommand ->
+        match parse unknownCommand with
+        | None -> loop state
+        | Some command -> 
+            let invocationTime = DateTime.Now
+            execute command
+
+            let invocation = {
+                Command = command
+                InvocationTime = invocationTime
+                CompletionTime = DateTime.Now
+            }
+
+            state
+            |> recordInvocation invocation
+            |> writeState
+            |> loop
+            
+            // TODO:
+            //  - was it successfull? 
+            //  - How long did it run?
+            //  - Did any error occur? Want to google it or some custom search engine? :)
+
 
 [<EntryPoint>]
 let main argv =
@@ -183,7 +188,6 @@ let main argv =
     printfn "Use this as a regular shell, but we will keep track of want commands you run and when"
     
     readState()
-    |> loop 
-    |> writeState
+    |> loop
     
     0
