@@ -20,6 +20,7 @@ module Model =
         Command: Command
         InvocationTime: DateTime
         CompletionTime: DateTime
+        Outcome: Result<unit, unit>
     }
 
     type Shortcut = 
@@ -52,7 +53,7 @@ module Shortify =
         let top3UsedCommands = 
             commandsWithUsageCount
             |> List.sortByDescending fst
-            |> List.filter (fst >> ((<=) 1))
+            |> List.filter (fst >> ((<) 1))
             |> List.truncate 3
         top3UsedCommands
 
@@ -69,9 +70,13 @@ module Repl =
             }
 
     let execute (command: Command) =
-        CreateProcess.fromRawCommand command.Command command.Arguments
-        |> Proc.run
-        |> ignore
+        try
+            CreateProcess.fromRawCommand command.Command command.Arguments
+            |> Proc.run
+            |> ignore
+
+            Ok ()
+        with _ -> Error ()
 
     let suggestCommandsShortcut state = 
         let shortcutCandidates = topUsedCommands state.InvocationHistory
@@ -135,12 +140,13 @@ module Repl =
             | None -> state
             | Some command -> 
                 let invocationTime = DateTime.Now
-                execute command
+                let outcome = execute command
 
                 let invocation = {
                     Command = command
                     InvocationTime = invocationTime
                     CompletionTime = DateTime.Now
+                    Outcome = outcome
                 }
 
                 state
@@ -179,7 +185,9 @@ module App =
     [<EntryPoint>]
     let main argv =
         printfn "Welcome to Shortify :)"
-        printfn "Use this as a regular shell, but we will keep track of want commands you run and when"
+        printfn "I will observe your work proactively suggest"
+        printfn " - Shortcuts to commonly used commands and batches of commands"
+        printfn " - Solutions to errors you encounter"
     
         let mutable state = 
             readState()
