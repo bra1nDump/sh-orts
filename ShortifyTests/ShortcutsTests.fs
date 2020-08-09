@@ -8,15 +8,26 @@ open NUnit.Framework
 open FsUnit
 
 module ShortcutsTests =
-    // samples
-    let lsCommand = { Command = "ls"; Arguments = []}
-    let lsInvocation = {
-        Command = lsCommand
+    let invocation command = {
+        Command = command
         InvocationTime = DateTime.Now
         CompletionTime = DateTime.Now
+        Outcome = Ok ()
     }
 
+    // samples
+    let lsCommand = { Command = "ls"; Arguments = []}
+    let lsInvocation = invocation lsCommand
+
+    let timeLsCommand = { Command = "time"; Arguments = ["ls"] }
+    let timeLsInvocation = invocation timeLsCommand
+
     [<Test>]
-    let ``shortcuts is proposed if a command is used more than once``() =
+    let ``command that is used more than once is identified``() =
         topUsedCommands [lsInvocation; lsInvocation]
-        |> should not' (be Empty)
+        |> should equal [2, lsCommand]
+
+    [<Test>]
+    let ``command sequence of 2 that is repeated is identified``() =
+        topUsedCommandBatches [lsInvocation; lsInvocation; timeLsInvocation; lsInvocation; lsInvocation]
+        |> should equal [2, [lsCommand; lsCommand]]
