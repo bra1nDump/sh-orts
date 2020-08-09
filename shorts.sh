@@ -1,0 +1,1 @@
+dotnet run --project Shortify/Shortify.fsproj

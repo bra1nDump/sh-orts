@@ -88,12 +88,12 @@ module Repl =
             |> ignore
 
             Ok ()
-        with _ -> Error ()
+        with _ -> Error "Oops, this failed :("
 
     let suggestCommandsShortcut isProactive minimumSequenceLength state = 
         let shortcutCandidates = 
             repeatedCommandSequence state.InvocationHistory
-            |> Array.filter (fun (_, commands) -> Array.length commands > minimumSequenceLength)
+            |> Array.filter (fun (_, commands) -> Array.length commands >= minimumSequenceLength)
             |> Array.truncate 3
 
         if Array.isEmpty shortcutCandidates then 
@@ -125,7 +125,7 @@ module Repl =
                     Name = name
                     Commands = command
                 }
-                { state with ActiveShortcuts = Array.append [|shortcut|] state.ActiveShortcuts }
+                { state with ActiveShortcuts = Array.append state.ActiveShortcuts [|shortcut|] }
             with _ -> state
 
     let suggestedScheduledRun = id
@@ -137,11 +137,13 @@ module Repl =
         |> suggestedScheduledRun
 
     let recordInvocation invocation state = 
-        { state with InvocationHistory = Array.append [|invocation|] state.InvocationHistory }
+        { state with InvocationHistory = Array.append state.InvocationHistory [|invocation|] }
 
     let invokeCommand command state = 
         let invocationTime = DateTime.Now
-        let outcome = execute command
+        match execute command with 
+        | Error error -> printfn "%A" error
+        | _ -> ()
 
         let invocation = {
             Command = command
@@ -161,6 +163,7 @@ module Repl =
             |> Map.ofArray
 
         match Console.ReadLine() with 
+        | "" -> state
         | "exit" | "quit" -> 
             printfn "See you soon! Buyee :)"
             Environment.Exit(0)
@@ -181,7 +184,10 @@ module Repl =
             let shortcut = shortcutMap.Item maybeShortcutName
             
             shortcut.Commands
-            |> Array.fold (flip invokeCommand) state 
+            |> Array.fold (fun state command -> 
+                    printfn "sh-orts> %O" command
+                    invokeCommand command state) 
+                state 
         | unknownCommand ->
             match parse unknownCommand with
             | None -> state
@@ -197,7 +203,10 @@ module IO =
         JsonConvert.SerializeObject(value, Formatting.Indented)
 
     let deserialize<'a> (str: string) =
-        try JsonConvert.DeserializeObject<'a>(str) |> Some
+        try 
+            let value = JsonConvert.DeserializeObject<'a>(str)
+            if obj.ReferenceEquals(value, null) 
+            then None else Some value
         with _ -> None
 
     let stateFileName = "shortify.state"
@@ -217,7 +226,7 @@ module App =
     [<EntryPoint>]
     let main argv =
         printfn "Welcome to Shortify :)"
-        printfn "I will observe your work proactively suggest"
+        printfn "I will observe your work and proactively suggest"
         printfn " - Shortcuts to commonly used commands and batches of commands"
         printfn " - Solutions to errors you encounter"
     
