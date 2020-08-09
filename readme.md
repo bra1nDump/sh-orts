@@ -48,10 +48,10 @@ Look, all I needed is someone to point out to me - "Hey, why don't you do this? 
 
 ### Tech features
 
-[x] Crossplatform .NET Core :)
-[x] Persists state across sessions into a file (aka better .bash_history)
-[ ] Troubleshoot bugs when running `git commit -m` or `cd ..` and I suspect many others
-[ ] Someone fix serialization/deserialization in F# type system already!
+- [x] Crossplatform .NET Core :)
+- [x] Persists state across sessions into a file (aka better .bash_history)
+- [ ] Troubleshoot bugs when running `git commit -m` or `cd ..` and I suspect many others
+- [ ] Someone fix serialization/deserialization in F# type system already!
 
 ### Free form
 
