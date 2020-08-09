@@ -70,7 +70,7 @@ module Shortify =
 
         if maxSequenceLength < 1 then [||]
         else
-            [|maxSequenceLength .. 1|]
+            [|1..maxSequenceLength|] |> Array.rev
             |> Array.collect (topUsedCommandSequenceOfLength commandHistory)
 
 module Repl =

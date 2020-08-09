@@ -12,22 +12,28 @@ module ShortcutsTests =
         Command = command
         InvocationTime = DateTime.Now
         CompletionTime = DateTime.Now
-        Outcome = Ok ()
     }
 
     // samples
-    let lsCommand = { Command = "ls"; Arguments = []}
+    let lsCommand = { Command = "ls"; Arguments = [||]}
     let lsInvocation = invocation lsCommand
 
-    let timeLsCommand = { Command = "time"; Arguments = ["ls"] }
+    let timeLsCommand = { Command = "time"; Arguments = [|"ls"|] }
     let timeLsInvocation = invocation timeLsCommand
 
     [<Test>]
     let ``command that is used more than once is identified``() =
-        topUsedCommands [lsInvocation; lsInvocation]
-        |> should equal [2, lsCommand]
+        repeatedCommandSequence [|lsInvocation; lsInvocation|]
+        |> should equal [|2, [|lsCommand|]|]
 
     [<Test>]
     let ``command sequence of 2 that is repeated is identified``() =
-        topUsedCommandBatches [lsInvocation; lsInvocation; timeLsInvocation; lsInvocation; lsInvocation]
-        |> should equal [2, [lsCommand; lsCommand]]
+        repeatedCommandSequence [|lsInvocation; lsInvocation; timeLsInvocation; lsInvocation; lsInvocation|]
+        |> Array.truncate 1
+        |> should equal [|2, [|lsCommand; lsCommand|]|]
+
+    [<Test>]
+    let ``2 repeated command sequences are identified``() =
+        repeatedCommandSequence [|lsInvocation; lsInvocation; timeLsInvocation; lsInvocation; lsInvocation|]
+        |> Array.length
+        |> should equal 2
