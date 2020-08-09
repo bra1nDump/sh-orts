@@ -17,7 +17,7 @@ module Model =
     type Command = 
         {
             Command: string
-            Arguments: string list
+            Arguments: string array
         }
         override this.ToString() = 
             [ yield this.Command; yield! this.Arguments ]
@@ -27,26 +27,26 @@ module Model =
         Command: Command
         InvocationTime: DateTime
         CompletionTime: DateTime
-        Outcome: Result<unit, unit>
+        //Outcome: Result<unit, unit>
     }
 
     type Shortcut = 
         {
             Name: string
-            Commands: Command list
+            Commands: Command array
         }
         override this.ToString() = 
             this.Name
             + " runs:\n"
             + (
                 this.Commands
-                |> List.map (fun c -> c.ToString())
+                |> Array.map (fun c -> c.ToString())
                 |> String.concat "\n"
             )
 
     type State = {
-        InvocationHistory: CommandInvocation list
-        ActiveShortcuts: Shortcut list
+        InvocationHistory: CommandInvocation array
+        ActiveShortcuts: Shortcut array
     }
 
 module Shortify = 
@@ -54,14 +54,14 @@ module Shortify =
     let topUsedCommands invocationHistory =
         let commandsWithUsageCount = 
             invocationHistory
-            |> List.map (fun invocation -> invocation.Command)
-            |> List.groupBy (fun command -> command.Command.ToString())
-            |> List.map (fun (_, commands) -> List.length commands, commands.Head)
+            |> Array.map (fun invocation -> invocation.Command)
+            |> Array.groupBy (fun command -> command.Command.ToString())
+            |> Array.map (fun (_, commands) -> Array.length commands, commands.[0])
         let top3UsedCommands = 
             commandsWithUsageCount
-            |> List.sortByDescending fst
-            |> List.filter (fst >> ((<) 1))
-            |> List.truncate 3
+            |> Array.sortByDescending fst
+            |> Array.filter (fst >> ((<) 1))
+            |> Array.truncate 3
         top3UsedCommands
 
 module Repl =
@@ -73,7 +73,7 @@ module Repl =
         | command::args ->
             Some {
                 Command = command
-                Arguments = args
+                Arguments = args |> Array.ofList
             }
 
     let execute (command: Command) =
@@ -87,28 +87,28 @@ module Repl =
 
     let suggestCommandsShortcut state = 
         let shortcutCandidates = topUsedCommands state.InvocationHistory
-        if shortcutCandidates.IsEmpty then 
+        if Array.isEmpty shortcutCandidates then 
             printfn "You are a genious who never repeats themselves! Congratuations! None to be done here"
             state
         else
             [
-                for i, (usageCount, command) in shortcutCandidates |> List.indexed do
+                for i, (usageCount, command) in shortcutCandidates |> Array.indexed do
                 printfn "Type the number the command you want to shortcut"
-                printfn "%d : %A -- used %d times" i command usageCount
+                printfn "  (%d) : %O -- used %d times" i command usageCount
             ]
             |> ignore
 
             try 
                 let selection = Console.ReadLine() |> int
-                let _, command = List.item selection shortcutCandidates
+                let _, command = Array.item selection shortcutCandidates
 
                 printf "Enter shortcut name: "
                 let name = Console.ReadLine()
                 let shortcut = {
                     Name = name
-                    Commands = [command]
+                    Commands = [|command|]
                 }
-                { state with ActiveShortcuts = shortcut::state.ActiveShortcuts }
+                { state with ActiveShortcuts = Array.append [|shortcut|] state.ActiveShortcuts }
             with _ -> state
 
     let suggestedScheduledRun = id
@@ -120,7 +120,7 @@ module Repl =
         |> suggestedScheduledRun
 
     let recordInvocation invocation state = 
-        { state with InvocationHistory = invocation::state.InvocationHistory }
+        { state with InvocationHistory = Array.append [|invocation|] state.InvocationHistory }
 
     let invokeCommand command state = 
         let invocationTime = DateTime.Now
@@ -130,7 +130,7 @@ module Repl =
             Command = command
             InvocationTime = invocationTime
             CompletionTime = DateTime.Now
-            Outcome = outcome
+            //Outcome = outcome
         }
 
         state
@@ -141,8 +141,8 @@ module Repl =
 
         let shortcutMap = 
             state.ActiveShortcuts
-            |> List.map (fun shortcut -> shortcut.Name, shortcut)
-            |> Map.ofList
+            |> Array.map (fun shortcut -> shortcut.Name, shortcut)
+            |> Map.ofArray
 
         match Console.ReadLine() with 
         | "exit" | "quit" -> 
@@ -152,20 +152,20 @@ module Repl =
         | "suggest" -> 
             // TODO: split into suggestion stage and accepting
             suggest state
-        | "list" ->
+        | "array" ->
             let yourShortcuts = state.ActiveShortcuts
-            if List.isEmpty yourShortcuts then
+            if Array.isEmpty yourShortcuts then
                 printfn "Currently you dont have any shortcuts. You can add them with 'suggest' command"
             else
                 printfn "Your shortcuts: "
-                yourShortcuts |> List.iter (printfn "%A")
+                yourShortcuts |> Array.iter (printfn "%O")
         
             state
         | maybeShortcutName when shortcutMap.ContainsKey maybeShortcutName ->
             let shortcut = shortcutMap.Item maybeShortcutName
             
             shortcut.Commands
-            |> List.fold (flip invokeCommand) state 
+            |> Array.fold (flip invokeCommand) state 
         | unknownCommand ->
             match parse unknownCommand with
             | None -> state
@@ -174,16 +174,13 @@ module Repl =
 
 module IO =
     open Fake.IO
-    open System.Text.Json
+    open Newtonsoft.Json
 
     let serialize<'a> (value: 'a) =
-        let options = JsonSerializerOptions()
-        options.WriteIndented <- true
-        JsonSerializer.Serialize(value, typeof<'a>, options)
+        JsonConvert.SerializeObject(value, Formatting.Indented)
 
     let deserialize<'a> (str: string) =
-        let options = JsonSerializerOptions()
-        try JsonSerializer.Deserialize<'a>(str, options) |> Some
+        try JsonConvert.DeserializeObject<'a>(str) |> Some
         with _ -> None
 
     let stateFileName = "shortify.state"
@@ -208,8 +205,9 @@ module App =
         printfn " - Solutions to errors you encounter"
     
         let mutable state = 
-            readState()
-            |> Option.defaultValue { InvocationHistory = []; ActiveShortcuts = [] }
+            readState<State>()
+            |> Option.defaultValue { InvocationHistory = [||]; ActiveShortcuts = [||] }
+        Console.WriteLine(state)
         while true do
             state <- repl state
             writeState state
