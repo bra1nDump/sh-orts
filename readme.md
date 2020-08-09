@@ -18,18 +18,18 @@ sh-orts >
 
 ### Features & Roadmap
 
-[x] Basic interface to get active shortcuts, ask for shortcut to be suggested
-[x] Unrecognized commands are forwared to regular shell
-[ ] Suggest shortcuts
-    [x] Once a command or a sequence of commands is repeated
-    [ ] Once an argument is repeated over N times
-[ ] Suggest to run a set of commands at a given time
-    [ ] If commands take a long time to complete & are ran around the same time
-[ ] If a command fails
-    [ ] and the same N commands are ran after words create recovery command for similar errors
-    [ ] perform a google/stackoverflow/propriatery engine search for suggested solutions
-[ ] Shift to ML from current rule based approach. See what GTP-3 can offer.
-[ ] For a given company share all interaction history, shortcuts, and recovery options between employees. Increasing data corpus leads to better suggestions. This can also be used to detect problems in documentation (ex: command sequences are in docs, but started failing for all employees). 
+- [x] Basic interface to get active shortcuts, ask for shortcut to be suggested
+- [x] Unrecognized commands are forwared to regular shell
+- [ ] Suggest shortcuts
+    - [x] Once a command or a sequence of commands is repeated
+    - [ ] Once an argument is repeated over N times
+- [ ] Suggest to run a set of commands at a given time
+    - [ ] If commands take a long time to complete & are ran around the same time
+- [ ] If a command fails
+    - [ ] and the same N commands are ran after words create recovery command for similar errors
+    - [ ] perform a google/stackoverflow/propriatery engine search for suggested solutions
+- [ ] Shift to ML from current rule based approach. See what GTP-3 can offer.
+- [ ] For a given company share all interaction history, shortcuts, and recovery options between employees. Increasing data corpus leads to better suggestions. This can also be used to detect problems in documentation (ex: command sequences are in docs, but started failing for all employees). 
 
 ### Philosofy - stay motivated by specific use cases
 
