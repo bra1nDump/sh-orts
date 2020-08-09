@@ -60,9 +60,29 @@ module Shortify =
         let top3UsedCommands = 
             commandsWithUsageCount
             |> List.sortByDescending fst
-            |> List.filter (fst >> ((<) 1))
+            |> List.filter (fun (count, _) -> count > 1)
             |> List.truncate 3
         top3UsedCommands
+
+    // TODO: ? Move to Flex module, this is generic
+    let topUsedCommandBatchesOfLength invocationHistory length =
+        let batches = [
+            for i in [0..List.length invocationHistory - length] do
+            invocationHistory |> List.skip i |> List.take length
+        ]
+
+        batches 
+        |> List.groupBy id
+        |> List.map (fun (batch, duplicates) -> List.length duplicates, batch)
+        |> List.sortByDescending fst
+        |> List.filter (fun (count, _) -> count > 1)
+        |> List.truncate 1
+
+    let topUsedCommandBatches invocationHistory =
+        let commandHistory = List.map (fun i -> i.Command) invocationHistory
+        let maxBatchSize = List.length commandHistory / 2
+        [max maxBatchSize 2 .. 2]
+        |> List.collect (topUsedCommandBatchesOfLength commandHistory)
 
 module Repl =
     open Shortify
